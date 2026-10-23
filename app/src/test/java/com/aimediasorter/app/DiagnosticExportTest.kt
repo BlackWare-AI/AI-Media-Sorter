@@ -106,7 +106,7 @@ class DiagnosticExportTest {
         for((value,expected) in cases) {
             val events=mutableListOf<DiagnosticEvent>()
             val operation=DiagnosticOperation(DiagnosticSink { events+=it },DiagnosticKind.MEDIA_ANALYSIS)
-            val payload="""{"categories":["cat_food"],"subjects":[{"description":"Main subject","importance":"main"}],"pose":"","scene":"","details":[],"reason":$value,"review_status":"CLEAR"}"""
+            val payload="""{"primary_subject":"Main subject","primary_category":"cat_food","independently_significant_secondary_subjects":[],"contextual_objects":[],"pose":"","scene":"","details":[],"category_decision_reason":$value,"review_required":false}"""
             val response="""{"candidates":[{"finishReason":"STOP","content":{"parts":[{"text":${DiagnosticPrivacy.json.encodeToString(payload)}}]}}]}"""
             try { CloudProtocol.parseResponse(response,setOf("cat_food"),operation);fail("Expected schema failure") }
             catch(error: CloudFailure) { assertEquals(AnalysisCode.RESPONSE_SCHEMA,error.diagnostic) }

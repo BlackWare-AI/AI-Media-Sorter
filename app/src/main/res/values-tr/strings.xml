@@ -386,4 +386,7 @@
     <string name="diagnostics_failure_count">Analiz başarısız: %1$d. Teknik ayrıntılar için son analiz raporunu dışa aktarın.</string>
     <string name="diagnostics_no_report">Saklanan analiz raporu bulunamadı.</string>
     <string name="diagnostics_historical">Kaydedilmiş eski sonuçlar mevcut. Önceki sürümler tüm işlem aşamalarını kaydetmedi; bilinmeyen istek sayıları ve süreler bilinmiyor olarak kalır.</string>
+    <string name="virtual_primary_subject">Fotoğrafın ana konusu</string>
+    <string name="virtual_significant_subject">Bağımsız olarak önemli konu</string>
+    <string name="virtual_context_only">Yalnızca bağlam — kategori atanmaz</string>
 </resources>

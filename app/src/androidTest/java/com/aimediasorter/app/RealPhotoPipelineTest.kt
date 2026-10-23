@@ -37,7 +37,7 @@ class RealPhotoPipelineTest {
     private val categories=listOf(CategoryEntity("cat_food","Food","Meals and fruit",0,"label",1,destinationSubfolder="Food"))
     private fun response()=JSONObject().put("candidates",JSONArray().put(JSONObject()
         .put("finishReason","STOP").put("content",JSONObject().put("parts",JSONArray().put(JSONObject()
-        .put("text","""{"categories":["cat_food"],"subjects":[{"description":"Fruit","importance":"main"}],"pose":"","scene":"table","details":[],"reason":"Fruit is the main subject.","review_status":"CLEAR"}""")))))).toString()
+        .put("text","""{"primary_subject":"Fruit","primary_category":"cat_food","independently_significant_secondary_subjects":[],"contextual_objects":[],"pose":"","scene":"table","details":[],"category_decision_reason":"Fruit is the main subject.","review_required":false}""")))))).toString()
     private fun jpeg(): File=File(context.cacheDir,"jpeg-qa-"+UUID.randomUUID()+".jpg").also { file ->
         instrumentation.context.assets.open("real_photo_fruits.jpg").use { input -> file.outputStream().use { input.copyTo(it) } }
     }

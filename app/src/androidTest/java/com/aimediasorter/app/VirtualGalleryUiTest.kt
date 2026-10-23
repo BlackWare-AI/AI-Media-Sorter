@@ -55,7 +55,8 @@ class VirtualGalleryUiTest {
                 detectedCategoryId=categoryId,detectedCategoryName="QA Visual Category",effectiveCategoryId=categoryId,
                 effectiveCategoryName="QA Visual Category",calibratedConfidence=0f,rawSimilarityScore=0f,topMargin=0f,
                 secondaryCategoryName=null,analyzedAtMs=1,sourceRootUri=root.path,scanSessionId=sessionId,
-                inferenceEngine="GEMINI",analysisStatus="PROPOSED"))
+                inferenceEngine="GEMINI",analysisStatus="PROPOSED",
+                analysisJson="""{"categories":["$categoryId"],"subjects":[{"description":"QA primary subject","importance":"main"}],"pose":"","scene":"","details":[],"reason":"QA composition summary","review_status":"CLEAR","primary_subject":"QA primary subject","primary_category":"$categoryId","contextual_objects":["QA incidental context"],"category_decision_reason":"QA composition summary","review_required":false}"""))
             db.virtualGalleryDao().insertLinks(listOf(MediaCategoryLink(id,categoryId,"EFFECTIVE"),MediaCategoryLink(id,categoryId,"PROPOSED")))
             settings.updateSourceUri(root.path)
             instrumentation.uiAutomation.grantRuntimePermission(context.packageName,Manifest.permission.POST_NOTIFICATIONS)
@@ -81,6 +82,8 @@ class VirtualGalleryUiTest {
             compose.onAllNodesWithContentDescription(photo.name).fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("virtual-media-"+id).performClick()
+        compose.onNodeWithTag("analysis-primary-subject").performScrollTo().assertTextContains("QA primary subject",substring=true)
+        compose.onNodeWithTag("analysis-context-only").performScrollTo().assertTextContains("QA incidental context",substring=true)
         compose.onNodeWithTag("view-full-image").performScrollTo().performClick()
         compose.onNodeWithTag("full-media-viewer",useUnmergedTree=true).assertExists()
         val decodedPreview=hasContentDescription(photo.name) and hasAnyAncestor(hasTestTag("full-media-viewer"))

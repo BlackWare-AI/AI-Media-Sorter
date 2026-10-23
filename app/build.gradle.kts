@@ -18,8 +18,8 @@ android {
         applicationId = "com.aimediasorter.app"
         minSdk = 34
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.1.2-private-diagnostics"
+        versionCode = 6
+        versionName = "1.1.3-subject-intent"
         ndk { abiFilters += selectedAbi }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

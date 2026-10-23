@@ -386,4 +386,7 @@
     <string name="diagnostics_failure_count">Analysis failed: %1$d. Export the last analysis report for technical details.</string>
     <string name="diagnostics_no_report">No retained analysis report is available.</string>
     <string name="diagnostics_historical">Historical saved results are available. Previous versions did not record all execution stages; unknown request counts and durations remain unknown.</string>
+    <string name="virtual_primary_subject">Primary photographic subject</string>
+    <string name="virtual_significant_subject">Independently important subject</string>
+    <string name="virtual_context_only">Context only — no category assignment</string>
 </resources>

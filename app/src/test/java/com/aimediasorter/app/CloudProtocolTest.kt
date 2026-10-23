@@ -16,7 +16,8 @@ class CloudProtocolTest {
         CategoryEntity("people","People","Humans",0,"label",1,destinationSubfolder="People"))
     private val options=CloudOptions(model="models/gemini-test")
     private val image=listOf(CloudImage(byteArrayOf(1,2,3)))
-    private val decision="""{"categories":["food"],"subjects":[{"description":"A meal","importance":"main"}],"pose":"","scene":"indoor","details":[],"reason":"The meal is the main subject.","review_status":"CLEAR"}"""
+    private val decision="""{"primary_subject":"A meal","primary_category":"food","independently_significant_secondary_subjects":[],"contextual_objects":[],"pose":"","scene":"indoor","details":[],"category_decision_reason":"The meal is the main subject.","review_required":false}"""
+    private fun fields(vararg changes: Pair<String,JsonElement>) = JsonObject(Json.parseToJsonElement(decision).jsonObject.toMutableMap().apply { putAll(changes) }).toString()
     private fun response(d: String=decision,finish: String="STOP")=buildJsonObject {
         put("candidates",buildJsonArray { add(buildJsonObject {
             put("finishReason",finish)
@@ -44,24 +45,25 @@ class CloudProtocolTest {
         assertEquals(10,r.inputTokens);assertEquals(10,r.outputTokens)
     }
     @Test fun allImportantCategoriesAreRetainedAndReviewIsDeterministic() {
-        val d=decision.replace("""["food"]""","""["people","food"]""")
+        val d=fields("primary_category" to JsonPrimitive("people"),"primary_subject" to JsonPrimitive("A person"),
+            "independently_significant_secondary_subjects" to Json.parseToJsonElement("""[{"description":"A meal","category":"food","significance_reason":"Deliberately presented alongside the person."}]"""))
         val r=CloudProtocol.parseResponse(response(d),setOf("food","people")).decision
         assertEquals(listOf("people","food"),r.categories);assertTrue(r.needsReview)
         assertEquals("REQUIRED",r.review_status)
     }
     @Test fun emptyAndExplicitlyAmbiguousResultsRequireReviewWithoutGuessingOther() {
-        val d=CloudProtocol.parseResponse(response(decision.replace("""["food"]""","[]")),setOf("food")).decision
+        val d=CloudProtocol.parseResponse(response(fields("primary_category" to JsonPrimitive(""))),setOf("food")).decision
         assertTrue(d.categories.isEmpty());assertTrue(d.needsReview)
-        assertTrue(CloudProtocol.parseResponse(response(decision.replace("CLEAR","REQUIRED")),setOf("food")).decision.needsReview)
+        assertTrue(CloudProtocol.parseResponse(response(fields("review_required" to JsonPrimitive(true))),setOf("food")).decision.needsReview)
     }
     @Test fun backgroundDetailsDoNotBecomeApplicationSideCategories() {
-        val d=decision.replace("[]", """["background building","small snack"]""")
+        val d=fields("contextual_objects" to Json.parseToJsonElement("""["background building","small snack"]"""))
         assertEquals(listOf("food"),CloudProtocol.parseResponse(response(d),setOf("food","people")).decision.categories)
     }
-    @Test fun unsupportedAndDuplicateCategoriesFailClosed() {
-        for(cats in listOf("""["unknown"]""","""["food","food"]""")) {
-            failure(CloudErrorKind.RESPONSE) { CloudProtocol.parseResponse(response(decision.replace("""["food"]""",cats)),setOf("food","people")) }
-        }
+    @Test fun unsupportedCategoriesAndUnlinkedLegacyCategoryListsFailClosed() {
+        for(d in listOf(fields("primary_category" to JsonPrimitive("unknown")),
+            fields("categories" to Json.parseToJsonElement("""["food","food"]"""))))
+            failure(CloudErrorKind.RESPONSE) { CloudProtocol.parseResponse(response(d),setOf("food","people")) }
     }
     @Test fun missingFieldsExtraConfidenceAndNonStringDescriptionsAreRejected() {
         for(d in listOf(decision.dropLast(1)+""","confidence":0.99}""",
@@ -160,9 +162,9 @@ class CloudProtocolTest {
             Triple(response(finish="OTHER"),setOf("food"),AnalysisCode.RESPONSE_FINISH),
             Triple(response("not JSON"),setOf("food"),AnalysisCode.RESPONSE_JSON),
             Triple(response("[]"),setOf("food"),AnalysisCode.RESPONSE_SCHEMA),
-            Triple(response(decision.replace("CLEAR","MAYBE")),setOf("food"),AnalysisCode.RESPONSE_SCHEMA),
+            Triple(response(fields("review_required" to JsonPrimitive("MAYBE"))),setOf("food"),AnalysisCode.RESPONSE_SCHEMA),
             Triple(response(decision.replace("food","unknown")),setOf("food"),AnalysisCode.RESPONSE_CATEGORIES),
-            Triple(response(decision.replace("""["food"]""","""["food","food"]""")),setOf("food"),AnalysisCode.RESPONSE_CATEGORIES),
+            Triple(response(fields("categories" to Json.parseToJsonElement("""["food","food"]"""))),setOf("food"),AnalysisCode.RESPONSE_SCHEMA),
             Triple(response(finish="SAFETY"),setOf("food"),AnalysisCode.RESPONSE_BLOCKED))
         for((body,allowed,code) in cases) {
             try { CloudProtocol.parseResponse(body,allowed);fail("Must reject invalid response") }

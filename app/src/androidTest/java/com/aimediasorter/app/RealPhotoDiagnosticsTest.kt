@@ -43,6 +43,35 @@ import java.util.UUID
 class RealPhotoDiagnosticsTest {
     private val instrumentation get()=InstrumentationRegistry.getInstrumentation()
     private val context get()=instrumentation.targetContext
+    @Test fun structuredMockSubjectContextSurvivesRoomWithoutExtraGalleryCategories()=runBlocking {
+        // This is transport/Room/safety evidence, not recognition: the JPEG and semantic mock are independent.
+        val fixture=Fixture(context,instrumentation.context)
+        try {
+            fixture.configure()
+            val original=fixture.photo.readBytes();val modified=fixture.photo.lastModified()
+            val payload=JSONObject().put("primary_subject","PRIVATE_MOCK_SUBJECT").put("primary_category","cat_people")
+                .put("independently_significant_secondary_subjects",JSONArray())
+                .put("contextual_objects",JSONArray().put("PRIVATE_MOCK_CONTEXT food buildings nature"))
+                .put("pose","standing").put("scene","restaurant").put("details",JSONArray())
+                .put("category_decision_reason","Composition emphasizes the person; other objects are incidental.")
+                .put("review_required",false)
+            fixture.reply=Fixture.response(listOf("cat_people"),text=payload.toString())
+            val batch=fixture.analyze()
+            val item=fixture.item()
+            assertEquals("PROPOSED",item.analysisStatus)
+            val stored=JSONObject(item.analysisJson)
+            assertEquals("PRIVATE_MOCK_SUBJECT",stored.getString("primary_subject"))
+            assertEquals(1,stored.getJSONArray("contextual_objects").length())
+            assertEquals(listOf("cat_people"),fixture.db.virtualGalleryDao().links(item.id)
+                .filter { it.origin=="EFFECTIVE" }.map { it.categoryId })
+            val snapshot=com.aimediasorter.app.data.diagnostics.Diagnostics.initialize(context).snapshot()
+            val events=snapshot.events.filter { it.batchId==batch }
+            assertTrue(events.any { it.metrics[com.aimediasorter.app.domain.diagnostics.DiagnosticMetric.ANALYSIS_PROTOCOL_VERSION]==3L })
+            assertFalse(events.joinToString { com.aimediasorter.app.domain.diagnostics.DiagnosticPrivacy.encode(it) }.contains("PRIVATE_MOCK"))
+            assertArrayEquals(original,fixture.photo.readBytes());assertEquals(modified,fixture.photo.lastModified())
+            assertTrue(fixture.destination.listFiles()!!.isEmpty())
+        } finally { fixture.close() }
+    }
     @Test fun realJpegDiagnosticReportKeepsExactFailureStageAndAnonymizesOriginal()=runBlocking {
         val fixture=Fixture(context,instrumentation.context)
         try {
@@ -116,8 +145,8 @@ class RealPhotoDiagnosticsTest {
             else {
                 val request=JSONObject(body);posts+=request
                 val enum=request.getJSONObject("generationConfig").getJSONObject("responseSchema").getJSONObject("properties")
-                    .getJSONObject("categories").getJSONObject("items").getJSONArray("enum")
-                val test=enum.length()==1 && enum.getString(0)=="test_scene"
+                    .getJSONObject("primary_category").getJSONArray("enum")
+                val test=enum.length()==2 && enum.getString(1)=="test_scene"
                 CloudHttpResponse(http,reply ?: response(if(test) listOf("test_scene") else if(multi) listOf("cat_food","cat_people") else listOf("cat_food")))
             }
         }),namespace="photo-diagnostics-"+UUID.randomUUID(),databaseName=name)
@@ -147,10 +176,13 @@ class RealPhotoDiagnosticsTest {
         }
         companion object {
             fun response(ids: List<String>,finish: String="STOP",text: String?=null): String {
-                val d=JSONObject().put("categories",JSONArray(ids)).put("subjects",JSONArray().put(
-                    JSONObject().put("description","Important visible subject").put("importance","main")))
-                    .put("pose","").put("scene","table").put("details",JSONArray()).put("reason","Meaningful visual subject.")
-                    .put("review_status","CLEAR")
+                val d=JSONObject().put("primary_subject","Important visible subject").put("primary_category",ids.firstOrNull().orEmpty())
+                    .put("independently_significant_secondary_subjects",JSONArray(ids.drop(1).map { id ->
+                        JSONObject().put("description","Independently important subject").put("category",id)
+                            .put("significance_reason","This subject is deliberately featured in the composition.")
+                    })).put("contextual_objects",JSONArray())
+                    .put("pose","").put("scene","table").put("details",JSONArray()).put("category_decision_reason","Meaningful visual subject.")
+                    .put("review_required",false)
                 return JSONObject().put("candidates",JSONArray().put(JSONObject().put("finishReason",finish).put("content",
                     JSONObject().put("parts",JSONArray().put(JSONObject().put("thought",true).put("text","ignored synthetic thought"))
                         .put(JSONObject().put("text",text ?: d.toString()))))))
@@ -171,9 +203,14 @@ class RealPhotoDiagnosticsTest {
             val a=synthetic.getJSONObject("generationConfig");val b=actual.getJSONObject("generationConfig")
             assertEquals(4096,a.getInt("maxOutputTokens"));assertEquals(a.getInt("maxOutputTokens"),b.getInt("maxOutputTokens"))
             assertEquals("application/json",b.getString("responseMimeType"))
-            val realEnum=b.getJSONObject("responseSchema").getJSONObject("properties").getJSONObject("categories").getJSONObject("items").getJSONArray("enum")
-            assertEquals(9,realEnum.length())
-            a.getJSONObject("responseSchema").getJSONObject("properties").getJSONObject("categories").getJSONObject("items").put("enum",realEnum)
+            val realProperties=b.getJSONObject("responseSchema").getJSONObject("properties")
+            val syntheticProperties=a.getJSONObject("responseSchema").getJSONObject("properties")
+            val realEnum=realProperties.getJSONObject("primary_category").getJSONArray("enum")
+            assertEquals(10,realEnum.length()) // Nine configured IDs plus explicit abstention.
+            syntheticProperties.getJSONObject("primary_category").put("enum",realEnum)
+            syntheticProperties.getJSONObject("independently_significant_secondary_subjects").getJSONObject("items").getJSONObject("properties")
+                .getJSONObject("category").put("enum",realProperties.getJSONObject("independently_significant_secondary_subjects")
+                    .getJSONObject("items").getJSONObject("properties").getJSONObject("category").getJSONArray("enum"))
             assertTrue("The schema and generation configuration must match after configured IDs are substituted.",a.toString()==b.toString())
             assertTrue(synthetic.getJSONObject("systemInstruction").toString()==actual.getJSONObject("systemInstruction").toString())
             for(request in f.posts) {

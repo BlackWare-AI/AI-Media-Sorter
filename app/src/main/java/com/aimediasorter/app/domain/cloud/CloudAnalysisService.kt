@@ -112,7 +112,7 @@ class CloudAnalysisService(context: Context,
                     liveCheck()
                     if(vault.revision!=credential.revision) throw CloudFailure(CloudErrorKind.CONSENT)
                 }
-                if(isVideo && images.size<2) response=response.copy(decision=response.decision.copy(review_status="REQUIRED"))
+                if(isVideo && images.size<2) response=response.copy(decision=response.decision.copy(review_status="REQUIRED",review_required=true))
                 liveCheck()
                 if(vault.revision!=credential.revision) throw CloudFailure(CloudErrorKind.CONSENT)
                 state.complete(batch,cacheKey,response);decision=response.decision

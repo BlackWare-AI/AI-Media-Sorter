@@ -54,10 +54,20 @@ import java.util.Date
         Text(stringResource(R.string.virtual_only_notice),style=MaterialTheme.typography.bodySmall)
         Text(stringResource(R.string.virtual_suggestions)+": "+proposed.mapNotNull { id->categories.firstOrNull { it.id==id } }.joinToString { it.name })
         if(analysis!=null) {
-            Text(analysis.reason)
+            Text(analysis.category_decision_reason ?: analysis.reason)
+            if(analysis.primary_subject!=null) {
+                Text(stringResource(R.string.virtual_primary_subject)+": "+analysis.primary_subject,modifier=Modifier.testTag("analysis-primary-subject"))
+                analysis.independently_significant_secondary_subjects.forEach { subject ->
+                    val category=categories.firstOrNull { it.id==subject.category }
+                    Text(stringResource(R.string.virtual_significant_subject)+": "+subject.description+
+                        (category?.let { " ("+categoryDisplayName(it.id,it.name)+")" } ?: ""))
+                    Text(subject.significance_reason,style=MaterialTheme.typography.bodySmall)
+                }
+                if(analysis.contextual_objects.isNotEmpty()) Text(stringResource(R.string.virtual_context_only)+": "+
+                    analysis.contextual_objects.joinToString(" • "),modifier=Modifier.testTag("analysis-context-only"))
+            } else analysis.subjects.forEach { Text("• "+it.description+" ("+it.importance+")") }
             if(analysis.pose.isNotBlank()) Text(stringResource(R.string.virtual_pose)+": "+analysis.pose)
             if(analysis.scene.isNotBlank()) Text(stringResource(R.string.virtual_scene)+": "+analysis.scene)
-            analysis.subjects.forEach { Text("• "+it.description+" ("+it.importance+")") }
             if(analysis.details.isNotEmpty()) Text(analysis.details.joinToString(" • "))
         } else if(item.primarySubjectNote.isNotBlank()) Text(item.primarySubjectNote,color=StatusAmber)
         AnalysisDiagnosticDetails(item.diagnosticCode,item.apiRequestsSent,item.requestReservations,item.responseHttpStatus)

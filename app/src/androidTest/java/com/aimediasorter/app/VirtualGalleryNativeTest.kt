@@ -71,7 +71,7 @@ class VirtualGalleryNativeTest {
         }
         companion object {
             fun response(): String {
-                val decision="""{"categories":["cat_people","cat_food"],"subjects":[{"description":"A person","importance":"main"},{"description":"A meal","importance":"main"}],"pose":"standing","scene":"indoor","details":[],"reason":"Two independently important subjects.","review_status":"CLEAR"}"""
+                val decision="""{"primary_subject":"A person","primary_category":"cat_people","independently_significant_secondary_subjects":[{"description":"A meal","category":"cat_food","significance_reason":"The meal is deliberately presented with the person."}],"contextual_objects":[],"pose":"standing","scene":"indoor","details":[],"category_decision_reason":"Two independently important subjects.","review_required":false}"""
                 return JSONObject().put("candidates",JSONArray().put(
                     JSONObject().put("finishReason","STOP").put("content",
                         JSONObject().put("parts",JSONArray().put(JSONObject().put("text",decision))))
