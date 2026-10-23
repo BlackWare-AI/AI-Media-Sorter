@@ -23,7 +23,9 @@ public final class FixtureDocumentsProvider extends DocumentsProvider {
     private void enforceCaller() {
         int uid = Binder.getCallingUid();
         if (uid == android.os.Process.myUid()) return;
-        String target = "com.aimediasorter.app.debug";
+        String testPackage = getContext().getPackageName();
+        if (!testPackage.endsWith(".test")) throw new SecurityException("Unexpected fixture package");
+        String target = testPackage.substring(0, testPackage.length() - 5);
         boolean trusted = false;
         String[] packages = getContext().getPackageManager().getPackagesForUid(uid);
         if (packages != null) for (String name : packages) if (target.equals(name)) trusted = true;

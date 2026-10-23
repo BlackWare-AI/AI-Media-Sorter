@@ -11,7 +11,9 @@ import android.provider.DocumentsContract;
 public final class FixtureGrantActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        String target = "com.aimediasorter.app.debug";
+        String testPackage = getPackageName();
+        if (!testPackage.endsWith(".test")) throw new SecurityException("Unexpected fixture package");
+        String target = testPackage.substring(0, testPackage.length() - 5);
         try {
             if (getPackageManager().checkSignatures(getPackageName(), target) != PackageManager.SIGNATURE_MATCH)
                 throw new SecurityException("Untrusted fixture target");

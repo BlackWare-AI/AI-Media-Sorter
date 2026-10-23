@@ -52,7 +52,9 @@ class NativePipelineTest {
         val expected = InstrumentationRegistry.getArguments().getString("expectedPageSize")?.toLong()
         if (expected != null) assertEquals(expected, android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            context.resources.getXml(R.xml.media_capabilities).use {
+            val resourceId=context.resources.getIdentifier("media_capabilities","xml",context.packageName)
+            assertTrue("The minified app must retain its media-capabilities resource.",resourceId!=0)
+            context.resources.getXml(resourceId).use {
                 val capabilities = android.media.ApplicationMediaCapabilities.createFromXml(it)
                 assertTrue(capabilities.isVideoMimeTypeSupported("video/hevc"))
                 assertTrue(capabilities.isHdrTypeSupported(android.media.MediaFeature.HdrType.HDR10))

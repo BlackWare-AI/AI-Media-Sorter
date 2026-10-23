@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
@@ -26,6 +27,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Measure verified baseline APK
+        if: github.job == 'build'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 38682222910 --repo 250siparis-code/AI-Media-Sorter --name AIMediaSorter-debug-apk --dir baseline-apk
+          mkdir -p size-reports
+          python3 scripts/measure_apk.py baseline-apk/app-debug.apk size-reports/baseline-size.json
+          "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" dex packages --defined-only baseline-apk/app-debug.apk > baseline-dex-packages.txt
       - name: Install decoder fixture generator
         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y ffmpeg
       - name: Generate isolated decoder fixture
@@ -34,12 +44,48 @@ jobs:
         run: python3 -m unittest discover -s tests -v
       - name: Clean build, unit tests, lint and instrumentation compilation
         run: ./gradlew clean testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --stacktrace
+      - name: Summarize executed JVM tests
+        run: python3 scripts/summarize_junit.py app/build/test-results/testDebugUnitTest app/build/reports/jvm-summary.json
       - name: Inspect generated APK
         run: python3 scripts/inspect_apk.py app/build/outputs/apk/debug/app-debug.apk
+      - name: Measure current debug APK
+        run: |
+          python3 scripts/measure_apk.py app/build/outputs/apk/debug/app-debug.apk app/build/reports/current-size.json
+          "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" dex packages --defined-only app/build/outputs/apk/debug/app-debug.apk > current-dex-packages.txt
+      - name: Build ARMv7 and ARM64 APKs for testing only
+        run: |
+          mkdir -p optimized-apks
+          cp app/build/outputs/apk/debug/app-debug.apk optimized-apks/optimized-arm64-v8a-debug.apk
+          ./gradlew assembleRelease -PqaReleaseSigning=true -PtargetAbi=arm64-v8a --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk optimized-apks/optimized-arm64-v8a-release-QA.apk
+          ./gradlew assembleDebug assembleRelease -PqaReleaseSigning=true -PtargetAbi=armeabi-v7a --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk optimized-apks/optimized-armeabi-v7a-debug.apk
+          cp app/build/outputs/apk/release/app-release.apk optimized-apks/optimized-armeabi-v7a-release-QA.apk
+          for apk in optimized-apks/*.apk; do
+            python3 scripts/measure_apk.py "$apk" "app/build/reports/$(basename "$apk" .apk)-size.json"
+            python3 scripts/inspect_apk.py "$apk"
+          done
+          python3 scripts/verify_optimized_apks.py
+          python3 -c 'import pathlib; names={"<TOTAL>","kotlin","kotlinx","androidx.compose","androidx.room","androidx.work","ai.onnxruntime","com.google.mlkit","com.google.android.gms"}; print("\n".join(l for l in pathlib.Path("baseline-dex-packages.txt").read_text().splitlines() if l.lstrip().startswith("P ") and l.split()[-1] in names))'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: optimized-APKs-QA-only
+          path: optimized-apks/*.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AIMediaSorter-arm64-v8a-release-QA
+          path: optimized-apks/optimized-arm64-v8a-release-QA.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AIMediaSorter-armeabi-v7a-release-QA
+          path: optimized-apks/optimized-armeabi-v7a-release-QA.apk
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: AIMediaSorter-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: optimized-apks/*-debug.apk
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
@@ -47,8 +93,13 @@ jobs:
           name: verification-reports
           path: |
             app/build/reports/tests/
+            app/build/test-results/testDebugUnitTest/TEST-*.xml
+            app/build/reports/*-summary.json
             app/build/reports/lint-results-debug.*
-            app/build/reports/apk-inspection.json
+            app/build/reports/*-inspection.json
+            app/build/reports/*-size.json
+            *-dex-packages.txt
+            size-reports/*.json
   android-device-tests:
     needs: build
     runs-on: ubuntu-latest
@@ -57,14 +108,31 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - api: 34
+            target: default
+            label: '34'
+            page_size: 4096
+            variant: debug
           - api: 35
             target: default
             label: '35'
             page_size: 4096
+            variant: debug
           - api: 35
             target: google_apis_ps16k
             label: '35-16kb'
             page_size: 16384
+            variant: debug
+          - api: 34
+            target: default
+            label: '34-release'
+            page_size: 4096
+            variant: release
+          - api: 35
+            target: google_apis_ps16k
+            label: '35-16kb-release'
+            page_size: 16384
+            variant: release
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -90,15 +158,18 @@ jobs:
           target: ${{ matrix.target }}
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectedPageSize=${{ matrix.page_size }} --stacktrace
+          script: bash scripts/run_native_tests.sh "${{ matrix.variant }}" "${{ matrix.page_size }}"
       - name: Capture test logcat
         if: always()
-        run: timeout 20s adb logcat -d > android-test-logcat.txt || true
+        run: |
+          timeout 20s adb logcat -d > android-test-logcat.txt || true
+          if [ "${{ job.status }}" != "success" ]; then tail -n 300 android-test-logcat.txt; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: native-test-reports-api-${{ matrix.label }}
           path: |
             app/build/reports/androidTests/
+            app/build/reports/native-summary.json
             app/build/outputs/androidTest-results/
             android-test-logcat.txt

@@ -18,7 +18,7 @@ permissions = manifest("permissions").splitlines()
 assert "com.aimediasorter.app.qa.documents" not in manifest("print"), "Test provider leaked into app APK"
 assert not any("android.permission.INTERNET" in p for p in permissions), permissions
 assert not any("MANAGE_EXTERNAL_STORAGE" in p for p in permissions), permissions
-assert manifest("min-sdk") == "35"
+assert manifest("min-sdk") == "34"
 assert manifest("target-sdk") == "35"
 subprocess.run([str(sdk / "build-tools/35.0.0/zipalign"), "-c", "-P", "16", "4", str(apk)], check=True)
 subprocess.run([str(sdk / "build-tools/35.0.0/apksigner"), "verify", "--verbose", str(apk)], check=True)
@@ -50,10 +50,10 @@ with zipfile.ZipFile(apk) as archive:
             "supports_16kb_alignment": all(a >= 16384 for a in alignments)})
 report = {"apk": apk.name, "bytes": apk.stat().st_size,
     "sha256": hashlib.sha256(apk.read_bytes()).hexdigest(),
-    "permissions": permissions, "min_sdk": 35, "target_sdk": 35, "native_libraries": native}
+    "permissions": permissions, "min_sdk": 34, "target_sdk": 35, "native_libraries": native}
 directory = pathlib.Path("app/build/reports")
 directory.mkdir(parents=True, exist_ok=True)
-(directory / "apk-inspection.json").write_text(json.dumps(report, indent=2))
+(directory / (apk.stem + "-inspection.json")).write_text(json.dumps(report, indent=2))
 print(json.dumps(report, indent=2))
 
 assert all(lib['supports_16kb_alignment'] for lib in native if '/arm64-v8a/' in lib['path'] or '/x86_64/' in lib['path']), '64-bit native libraries must support 16 KB load alignment'

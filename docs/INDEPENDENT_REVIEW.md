@@ -1,5 +1,7 @@
 # Independent Technical Review and Fix Record
 
+Current branch minimum: **Android 14 / API 34**. The dated Android 15 baseline verification below is historical. See [current ARM optimization and verification](ANDROID14_OPTIMIZATION.md) for the superseding platform, packaging and test results.
+
 Review baseline: main commit b32444218f4a5e262803199abbd70e98df786ffe.
 Proposed fixes: codex/audit-safety-and-build-fixes. Main was not overwritten.
 Source of truth: the GitHub repository. The supplied ZIP is excluded from the fix review.
