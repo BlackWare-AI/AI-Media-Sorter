@@ -2,6 +2,14 @@
 
 # AI Media Sorter
 
+## Contributors wanted
+
+AI Media Sorter is an open-source Android photo and video organizer powered by Gemini. It aims to identify the **main photographic subject**, rather than merely listing every visible object, and organize results into virtual galleries for review before any real file changes.
+
+**Help wanted:** Contributions are welcome for Gemini prompt and classification accuracy, realistic evaluation datasets, image/video processing, Android performance, accessible UI, diagnostics, tests, documentation, and safe file operations. In particular, we need help distinguishing foreground subjects from incidental objects (for example, a person at a dining table versus the food on the table, or a landscaped pool versus a building in the background).
+
+Please open an issue describing a bug or proposal, or submit a focused pull request with tests where possible. Do not upload private photos, API keys, or personal diagnostic data to public issues. Classification quality on real media is still under active evaluation; automated CI passing does not prove accuracy.
+
 <<<<<<< /tmp/prmerge/p3o1
 Requires **Android 15 (API 35) or later**.
 <<<<<<< /tmp/prmerge/o1
