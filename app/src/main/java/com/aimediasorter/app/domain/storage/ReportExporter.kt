@@ -36,16 +36,8 @@ class ReportExporter(private val context: Context) {
         csvFile.bufferedWriter(Charsets.UTF_8).use { writer ->
             writer.write(
                 "ID,FileName,Type,Extension,SizeBytes,OriginalLastModifiedMs,ExifCaptureDateMs," +
-<<<<<<< /tmp/prmerge/o3
-                "DetectedCategory,EffectiveCategory,CalibratedConfidence,RawSimilarity,TopMargin," +
-=======
                 "DetectedCategory,EffectiveCategory,ModelScore,DiagnosticRawSimilarity,TopMargin," +
-<<<<<<< /tmp/prmerge/p4o4
->>>>>>> /tmp/prmerge/t3
-                "NeedsManualReview,IsManuallyCorrected,Excluded,TransferStatus,SHA256,TimestampVerified\n"
-=======
                 "NeedsManualReview,IsManuallyCorrected,Excluded,TransferStatus,SHA256,TimestampVerified,InferenceEngine\n"
->>>>>>> /tmp/prmerge/p4t4
             )
             for (item in mediaItems) {
                 writer.write(

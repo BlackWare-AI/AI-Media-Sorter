@@ -389,4 +389,5 @@
     <string name="virtual_primary_subject">Primary photographic subject</string>
     <string name="virtual_significant_subject">Independently important subject</string>
     <string name="virtual_context_only">Context only — no category assignment</string>
+    <string name="app_name_qa">AI Media Sorter QA</string>
 </resources>

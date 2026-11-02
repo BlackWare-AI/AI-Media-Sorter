@@ -1,6 +1,7 @@
 package com.aimediasorter.app
 
 import android.Manifest
+import android.view.WindowInsets
 import androidx.compose.ui.test.*
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
@@ -41,9 +42,38 @@ class GeminiSettingsUiTest {
             compose.onNodeWithTag("settings-scroll").assertExists()
         }
         fun awaitKey(expected: String?) {
-            compose.waitUntil(10_000) {
-                if(expected==null) !GeminiKeyVault(context).hasKey()
-                else runCatching { GeminiKeyVault(context).read()==expected }.getOrDefault(false)
+            try {
+                compose.waitUntil(10_000) {
+                    if(expected==null) !GeminiKeyVault(context).hasKey()
+                    else runCatching { GeminiKeyVault(context).read()==expected }.getOrDefault(false)
+                }
+            } catch (timeout: ComposeTimeoutException) {
+                // Finite UI-state evidence only: never dump semantics containing the key.
+                fun enabled(tag: String): Boolean? = compose.onAllNodesWithTag(tag)
+                    .fetchSemanticsNodes().singleOrNull()?.config?.contains(SemanticsProperties.Disabled)?.not()
+                val feedback=compose.onAllNodesWithTag("gemini-feedback-SAVED",useUnmergedTree=true)
+                    .fetchSemanticsNodes().isNotEmpty()
+                throw AssertionError("KEY_PERSIST_TIMEOUT; save_enabled="+enabled("gemini-save-key")+
+                    "; delete_enabled="+enabled("gemini-delete-key")+"; saved_feedback="+feedback+
+                    "; awaiting_delete="+(expected==null),timeout)
+            }
+            compose.waitForIdle()
+        }
+        fun settleKeyboard() {
+            // Text replacement can open the IME asynchronously. A touch click during
+            // the inset/layout transition can miss the moving Save button.
+            // Hide the IME through the platform, then keep exercising the real button.
+            compose.runOnUiThread {
+                val current=activity.activity()
+                current.window.insetsController?.hide(WindowInsets.Type.ime())
+            }
+            compose.waitUntil(5_000) {
+                var hidden=false
+                compose.runOnUiThread {
+                    hidden=activity.activity().window.decorView.rootWindowInsets
+                        ?.isVisible(WindowInsets.Type.ime())==false
+                }
+                hidden
             }
             compose.waitForIdle()
         }
@@ -60,6 +90,7 @@ class GeminiSettingsUiTest {
         }
         fun saveKey(value: String) {
             compose.onNodeWithTag("gemini-key-input").performScrollTo().performTextReplacement(value)
+            settleKeyboard()
             compose.onNodeWithTag("gemini-save-key").performScrollTo().assertIsEnabled().performClick()
             awaitKey(value)
             awaitFeedback("SAVED")

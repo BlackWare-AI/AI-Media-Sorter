@@ -34,35 +34,10 @@ class StorageScanner(private val context: Context) {
     }
     fun isDestinationInsideSource(sourceUriStr: String, destinationUriStr: String): Boolean {
         if (sourceUriStr.isBlank() || destinationUriStr.isBlank()) return false
-<<<<<<< /tmp/prmerge/o5
-        val normalizedSrc = normalizeUriOrPath(sourceUriStr)
-        val normalizedDst = normalizeUriOrPath(destinationUriStr)
-        if (normalizedSrc.equals(normalizedDst, ignoreCase = true)) return true
-        return normalizedDst.startsWith("$normalizedSrc/", ignoreCase = true)
-    }
-
-    fun normalizeUriOrPath(raw: String): String {
-        val decoded = runCatching { URLDecoder.decode(raw, "UTF-8") }.getOrDefault(raw)
-        return decoded.trimEnd('/', '\\')
-    }
-
-    suspend fun scanDirectory(
-        sourceUriStr: String,
-        destinationUriStr: String,
-        includeSubfolders: Boolean,
-        mediaTypeFilter: MediaTypeFilter,
-        enabledExtensions: Set<String>,
-        onProgress: suspend (Int) -> Unit = {}
-    ): List<ScannedMediaCandidate> {
-        if (sourceUriStr.isBlank()) return emptyList()
-        if (isDestinationInsideSource(sourceUriStr, destinationUriStr)) {
-            throw IllegalArgumentException("Safety violation: Destination folder is inside or equal to the source folder.")
-=======
         val sourceFile = resolveLocalFile(sourceUriStr)
         val destinationFile = resolveLocalFile(destinationUriStr)
         if (sourceFile != null && destinationFile != null) {
             return destinationFile.canonicalFile.toPath().startsWith(sourceFile.canonicalFile.toPath())
->>>>>>> /tmp/prmerge/t5
         }
         val source = Uri.parse(sourceUriStr)
         val destination = Uri.parse(destinationUriStr)

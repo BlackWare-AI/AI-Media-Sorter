@@ -17,49 +17,28 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Check source integrity
+        run: python3 scripts/check_source_integrity.py
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-<<<<<<< /tmp/prmerge/o0
-
-      - name: Set up Android SDK (API 35)
-        uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
-
-      - name: Set up Gradle 8.9
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
-
-      - name: Run Unit & Acceptance Tests
-        run: gradle testDebugUnitTest --stacktrace
-
-      - name: Assemble Debug APK
-        run: gradle assembleDebug --stacktrace
-
-      - name: Verify Android 15 minimum SDK
-        run: |
-          actual_min_sdk="$("$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest min-sdk app/build/outputs/apk/debug/app-debug.apk)"
-          echo "APK minimum SDK: $actual_min_sdk"
-          test "$actual_min_sdk" = "35"
-
-      - name: Upload Debug APK Artifact
-        uses: actions/upload-artifact@v4
-=======
       - uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Configure optional persistent QA signing
+        env:
+          QA_DEBUG_KEYSTORE_BASE64: ${{ github.event_name != 'pull_request' && secrets.QA_DEBUG_KEYSTORE_BASE64 || '' }}
+        run: python3 scripts/configure_qa_signing.py --report qa-signing.json
       - name: Measure verified baseline APK
         if: github.job == 'build'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh run download 38682222910 --repo 250siparis-code/AI-Media-Sorter --name AIMediaSorter-debug-apk --dir baseline-apk
+          gh run download 38682222910 --repo "${{ github.repository }}" --name AIMediaSorter-debug-apk --dir baseline-apk
           mkdir -p size-reports
           python3 scripts/measure_apk.py baseline-apk/app-debug.apk size-reports/baseline-size.json
           "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" dex packages --defined-only baseline-apk/app-debug.apk > baseline-dex-packages.txt
@@ -110,10 +89,6 @@ jobs:
           path: optimized-apks/optimized-armeabi-v7a-release-QA.apk
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
-<<<<<<< /tmp/prmerge/p4o0
->>>>>>> /tmp/prmerge/t0
-=======
->>>>>>> /tmp/prmerge/p4t0
         with:
           name: AIMediaSorter-debug-apk
           path: optimized-apks/*-debug.apk
@@ -131,6 +106,7 @@ jobs:
             app/build/reports/*-size.json
             *-dex-packages.txt
             size-reports/*.json
+            qa-signing.json
   android-device-tests:
     # These jobs compile their own test APKs and consume no build-job artifacts.
     # Run independently so emulator verification and distributable APK builds overlap.
@@ -165,8 +141,20 @@ jobs:
             label: '35-16kb-release'
             page_size: 16384
             variant: release
+          - api: 36
+            target: google_apis_ps16k
+            label: '36-16kb'
+            page_size: 16384
+            variant: debug
+          - api: 36
+            target: google_apis_ps16k
+            label: '36-16kb-release'
+            page_size: 16384
+            variant: release
     steps:
       - uses: actions/checkout@v4
+      - name: Check source integrity
+        run: python3 scripts/check_source_integrity.py
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -177,6 +165,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Configure optional persistent QA signing
+        env:
+          QA_DEBUG_KEYSTORE_BASE64: ${{ github.event_name != 'pull_request' && secrets.QA_DEBUG_KEYSTORE_BASE64 || '' }}
+        run: python3 scripts/configure_qa_signing.py --report qa-signing.json
       - name: Install decoder fixture generator
         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y ffmpeg
       - name: Generate isolated decoder fixture
@@ -206,3 +198,6 @@ jobs:
             app/build/outputs/androidTest-results/
             android-test-logcat.txt
             android-crash-logcat.txt
+            android-runtime-diagnostics.txt
+            qa-signing.json
+            qa-coinstall-smoke.json

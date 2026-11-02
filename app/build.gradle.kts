@@ -7,6 +7,9 @@ plugins {
 }
 
 val qaReleaseSigning = providers.gradleProperty("qaReleaseSigning").orNull == "true"
+val qaKeystorePath = providers.environmentVariable("QA_KEYSTORE_PATH").orNull?.takeIf { it.isNotBlank() }
+val qaKeystoreFile = qaKeystorePath?.let { file(it) }
+require(qaKeystoreFile == null || qaKeystoreFile.isFile) { "Invalid QA keystore configuration." }
 val selectedAbi = providers.gradleProperty("targetAbi").orNull ?: "arm64-v8a"
 require(selectedAbi in setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")) { "Unsupported targetAbi" }
 
@@ -18,11 +21,12 @@ android {
         applicationId = "com.aimediasorter.app"
         minSdk = 34
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.1.3-subject-intent"
+        versionCode = 7
+        versionName = "1.1.4-recovery"
         ndk { abiFilters += selectedAbi }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["appLabel"] = "@string/app_name"
         testProguardFiles("test-proguard-rules.pro")
         vectorDrawables {
             useSupportLibrary = true
@@ -32,9 +36,28 @@ android {
 
     testBuildType = if (qaReleaseSigning) "release" else "debug"
 
+    signingConfigs {
+        getByName("debug") {
+            if (qaKeystoreFile != null) {
+                // Optional maintainer-controlled QA key, supplied only through CI environment.
+                storeFile = qaKeystoreFile
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
-            if (qaReleaseSigning) signingConfig = signingConfigs.getByName("debug")
+            if (qaReleaseSigning) {
+                // QA must coexist with the existing installation rather than forcing an
+                // uninstall when its production/previous QA signing key is unavailable.
+                applicationIdSuffix = ".qa"
+                versionNameSuffix = "-qa"
+                manifestPlaceholders["appLabel"] = "@string/app_name_qa"
+                signingConfig = signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

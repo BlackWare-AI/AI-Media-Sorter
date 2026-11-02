@@ -136,14 +136,6 @@ class AcceptanceScenariosTest {
         assertTrue(result.sourceRetained)
         assertEquals(TransferMethod.COPY, result.actualMethod)
     }
-<<<<<<< /tmp/prmerge/o7
-
-    @Test
-    fun testPosixSingleQuoteEscaping_preservesUnicodeSpacesQuotesAndDollarSigns() {
-        val rawName = "İstanbul Boğazı 'Kahvaltı' \$100 & (Test).jpg"
-        val escaped = "'" + rawName.replace("'", "'\\''") + "'"
-        assertEquals("'İstanbul Boğazı '\\''Kahvaltı'\\'' \$100 & (Test).jpg'", escaped)
-=======
     @Test fun deletionFailureIsReportedAsCopy() = runBlocking {
         val delegate = LocalTransferDocument(sourceFile)
         val restricted = object : TransferDocument by delegate {
@@ -154,7 +146,6 @@ class AcceptanceScenariosTest {
         assertTrue(result.sourceRetained)
         assertEquals(TransferMethod.COPY, result.actualMethod)
         assertTrue(result.details.contains("MOVE was not completed"))
->>>>>>> /tmp/prmerge/t7
     }
     @Test fun cancellationPreservesOriginalAndVerifiedCopy() = runBlocking {
         try {

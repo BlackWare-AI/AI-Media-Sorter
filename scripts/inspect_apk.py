@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import struct
 import subprocess
 import sys
@@ -21,7 +22,12 @@ assert not any("MANAGE_EXTERNAL_STORAGE" in p for p in permissions), permissions
 assert manifest("min-sdk") == "34"
 assert manifest("target-sdk") == "35"
 subprocess.run([str(sdk / "build-tools/35.0.0/zipalign"), "-c", "-P", "16", "4", str(apk)], check=True)
-subprocess.run([str(sdk / "build-tools/35.0.0/apksigner"), "verify", "--verbose", str(apk)], check=True)
+signing = subprocess.check_output([str(sdk / "build-tools/35.0.0/apksigner"), "verify", "--verbose", "--print-certs", str(apk)], text=True)
+fingerprints = re.findall(r"Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F]{64})", signing)
+assert fingerprints, "APK signing certificate fingerprint was not reported"
+package = manifest("application-id")
+if apk.name.endswith("-release-QA.apk"):
+    assert package == "com.aimediasorter.app.qa", "QA APK must coexist with existing production/debug installations"
 native = []
 with zipfile.ZipFile(apk) as archive:
     assert "assets/models/media_visual_embedder.onnx" in archive.namelist()
@@ -49,6 +55,8 @@ with zipfile.ZipFile(apk) as archive:
         native.append({"path": name, "load_segment_alignment": alignments,
             "supports_16kb_alignment": all(a >= 16384 for a in alignments)})
 report = {"apk": apk.name, "bytes": apk.stat().st_size,
+    "package": package, "version_code": manifest("version-code"), "version_name": manifest("version-name"),
+    "signing_certificate_sha256": fingerprints,
     "sha256": hashlib.sha256(apk.read_bytes()).hexdigest(),
     "permissions": permissions, "min_sdk": 34, "target_sdk": 35, "native_libraries": native}
 directory = pathlib.Path("app/build/reports")

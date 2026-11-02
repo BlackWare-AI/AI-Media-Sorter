@@ -389,4 +389,5 @@
     <string name="virtual_primary_subject">Fotoğrafın ana konusu</string>
     <string name="virtual_significant_subject">Bağımsız olarak önemli konu</string>
     <string name="virtual_context_only">Yalnızca bağlam — kategori atanmaz</string>
+    <string name="app_name_qa">AI Media Sorter QA</string>
 </resources>

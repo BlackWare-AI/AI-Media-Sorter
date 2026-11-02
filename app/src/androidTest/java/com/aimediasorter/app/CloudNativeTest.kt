@@ -129,7 +129,15 @@ class CloudNativeTest {
         } finally { file.delete() }
     }
     @Test fun officialLauncherIconIsAdaptiveAndRoundResourceResolves() {
+        // Instrumented release tests always use the isolated QA package. Never
+        // install a newly signed QA build over the user's production installation.
+        val debuggable=(context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0
+        assertEquals(if(debuggable) "com.aimediasorter.app.debug" else "com.aimediasorter.app.qa",context.packageName)
         val info=context.packageManager.getApplicationInfo(context.packageName,0)
+        val labelId=context.resources.getIdentifier(if(debuggable) "app_name" else "app_name_qa","string",context.packageName)
+        assertTrue(labelId!=0)
+        val label=context.getString(labelId)
+        assertEquals(label,info.loadLabel(context.packageManager).toString())
         assertTrue(context.getDrawable(info.icon) is AdaptiveIconDrawable)
         val round=context.resources.getIdentifier("ic_launcher_round","mipmap",context.packageName)
         assertTrue("Round launcher resource must survive shrinking.",round!=0)
